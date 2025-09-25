@@ -29,7 +29,8 @@ app.add_middleware(
         "http://localhost:5173",  # Local development (Vite default)
         "http://localhost:8081",  # Local development (current frontend port)
         "http://localhost:8080",
-        "https://reddit-sentiment-managerfrontend-production.up.railway.app",  # Railway deployment
+        "https://reddit-sentiment-managerfrontend-production.up.railway.app",
+        "https://cleverbridge-redditmanagertool-production.up.railway.app",  # Railway deployment
         "https://cleverbridge.reddit.manager.com"  # Custom domain (when SSL is fixed)
     ],
     allow_credentials=True,
