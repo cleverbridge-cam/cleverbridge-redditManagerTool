@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Cleverbridge-inspired color scheme - Updated to match current branding */
+    --background: 240 21% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 21% 11%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 21% 11%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 258 89% 66%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 21% 16%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 21% 14%;
+    --muted-foreground: 240 10% 60%;
+
+    --accent: 258 89% 66%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 21% 18%;
+    --input: 240 21% 14%;
+    --ring: 258 89% 66%;
+
+    --success: 142 76% 36%;
+    --warning: 38 92% 50%;
+    --info: 258 89% 66%;
+
+    /* Reddit colors for content indicators */
+    --reddit-orange: 16 100% 55%;
+    --reddit-blue: 210 100% 53%;
+
+    /* Cleverbridge purple gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(258 89% 66%), hsl(270 89% 70%));
+    --gradient-card: linear-gradient(135deg, hsl(240 21% 11%), hsl(240 21% 14%));
+    --gradient-background: linear-gradient(135deg, hsl(240 21% 8%) 0%, hsl(258 40% 15%) 50%, hsl(270 50% 20%) 100%);
+    
+    /* Enhanced shadows */
+    --shadow-card: 0 4px 12px hsl(240 21% 5% / 0.4);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 240 21% 11%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 258 89% 66%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 21% 16%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 21% 18%;
+    --sidebar-ring: 258 89% 66%;
+  }
+
+  .dark {
+    /* Keep same colors for consistency */
+    --background: 240 21% 8%;
+    --foreground: 0 0% 98%;
+    --card: 240 21% 11%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 21% 11%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 258 89% 66%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 21% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 21% 14%;
+    --muted-foreground: 240 10% 60%;
+    --accent: 258 89% 66%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 21% 18%;
+    --input: 240 21% 14%;
+    --ring: 258 89% 66%;
+    --sidebar-background: 240 21% 11%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 258 89% 66%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 21% 16%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 21% 18%;
+    --sidebar-ring: 258 89% 66%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background: var(--gradient-background);
+    color: hsl(var(--foreground));
+    min-height: 100vh;
+  }
+
+  /* Custom checkbox styling for dark theme */
+  input[type="checkbox"] {
+    appearance: none;
+    background-color: hsl(var(--input));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.25rem;
+    width: 1rem;
+    height: 1rem;
+    position: relative;
+    cursor: pointer;
+  }
+
+  input[type="checkbox"]:checked {
+    background-color: hsl(var(--primary));
+    border-color: hsl(var(--primary));
+  }
+
+  input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 0.2rem;
+    top: 0.05rem;
+    width: 0.3rem;
+    height: 0.6rem;
+    border: solid hsl(var(--primary-foreground));
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  input[type="checkbox"]:focus {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Specific styling for destructive checkboxes */
+  input[type="checkbox"].checkbox-destructive:checked {
+    background-color: hsl(var(--destructive));
+    border-color: hsl(var(--destructive));
+  }
+
+  /* Specific styling for success checkboxes */
+  input[type="checkbox"].checkbox-success:checked {
+    background-color: hsl(var(--success));
+    border-color: hsl(var(--success));
+  }
+}

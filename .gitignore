@@ -1,0 +1,119 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment files - SENSITIVE
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Allow .env.example for documentation
+!.env.example
+
+# API Keys and Secrets - SENSITIVE
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+config/secrets.json
+config/production.json
+auth.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.coverage
+.cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Database files - POTENTIALLY SENSITIVE
+*.db
+*.sqlite
+*.sqlite3
+database.sql
+dump.sql
+
+# Session and temporary files
+sessions/
+tmp/
+temp/
+*.tmp
+*.temp
+
+# SSL Certificates - SENSITIVE
+*.crt
+*.cer
+*.p7b
+*.p7r
+*.spc
+
+# Cloud provider credentials - SENSITIVE
+.aws/
+.gcp/
+.azure/
+gcp-key.json
+aws-credentials
+service-account.json
+
+# Reddit API credentials (if stored in files) - SENSITIVE
+reddit_credentials.json
+reddit_config.json
+client_secrets.json
+
+# Supabase credentials (if stored in files) - SENSITIVE
+supabase-key.json
+supabase_credentials.json
+
+# Build artifacts that might contain embedded secrets
+.next/
+.nuxt/
+.output/
+.vercel/
+
+# OS generated files
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# IDE files that might contain sensitive info
+.vscode/settings.json
+.idea/workspace.xml
+.idea/tasks.xml
