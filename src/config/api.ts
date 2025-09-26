@@ -11,10 +11,11 @@ const getApiBaseUrl = (): string => {
   if (import.meta.env.DEV) {
     return "http://localhost:8000";
   }
-  
+
   // Fallback for production if env var not set
   // You'll replace this with your Railway backend URL
   return "https://your-backend-app.railway.app";
+
 };
 
 export const API_BASE_URL = getApiBaseUrl();
