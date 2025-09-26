@@ -29,10 +29,7 @@ export const getAuthConfig = async () => {
   } catch (error) {
     console.error('Failed to get auth config:', error);
     // Fallback - but this should rarely be used now
-    console.warn('Using fallback authentication credentials');
-    return {
-      username: 'admin',
-      password: 'reddit123'
-    };
+    console.warn('No authentication credentials available');
+    throw new Error('No authentication credentials available');
   }
 };
