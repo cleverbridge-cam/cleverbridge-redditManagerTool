@@ -3,16 +3,7 @@
 
 export const getAuthConfig = async () => {
   try {
-    // First try environment variables (for local development)
-    let username = import.meta.env.VITE_AUTH_USERNAME;
-    let password = import.meta.env.VITE_AUTH_PASSWORD;
-
-    // If environment variables are available, use them
-    if (username && password) {
-      return { username, password };
-    }
-
-    // Otherwise, fetch from backend API
+    // Always fetch from backend API for credentials
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const response = await fetch(`${apiUrl}/api/config`);
     
@@ -28,11 +19,6 @@ export const getAuthConfig = async () => {
     
   } catch (error) {
     console.error('Failed to get auth config:', error);
-    // Fallback - but this should rarely be used now
-    console.warn('Using fallback authentication credentials');
-    return {
-      username: 'admin',
-      password: 'reddit123'
-    };
+    throw new Error('No authentication credentials available');
   }
 };

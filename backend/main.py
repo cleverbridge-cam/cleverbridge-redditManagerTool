@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 from functools import lru_cache
 from datetime import datetime, timedelta
+from fastapi.responses import JSONResponse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -62,17 +63,6 @@ def clear_cache():
     get_cached_subreddits.cache_clear()
     get_cached_keywords.cache_clear()
     return {"message": "Cache cleared"}
-
-# Configuration endpoint for frontend authentication
-@app.get("/api/config")
-def get_frontend_config():
-    """Provide frontend configuration including auth credentials"""
-    return {
-        "auth": {
-            "username": os.getenv("AUTH_USERNAME", "admin"),
-            "password": os.getenv("AUTH_PASSWORD", "reddit123")
-        }
-    }
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET_KEY"))
 
@@ -200,5 +190,19 @@ def get_dashboard_data():
         }
     except Exception as e:
         return {"error": str(e), "posts": [], "average_sentiment": 0}
+
+@app.post("/api/login")
+async def login(request: Request):
+    data = await request.json()
+    password = data.get("password")
+    # Get password from environment variable
+    expected_password = os.getenv("AUTH_PASSWORD")
+    if not expected_password:
+        return JSONResponse(status_code=500, content={"error": "Auth password not set on server."})
+    if password == expected_password:
+        # Set session cookie
+        request.session["authenticated"] = True
+        return {"success": True}
+    return JSONResponse(status_code=401, content={"success": False, "error": "Invalid password"})
 
 app.include_router(reddit_oauth_router)
