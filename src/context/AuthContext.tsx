@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getAuthConfig } from '../config/auth';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -46,23 +45,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (credentials: { username: string; password: string }): Promise<boolean> => {
     try {
-      // Get credentials from configuration (now async)
-      const authConfig = await getAuthConfig();
-      
-      // Debug: Log environment variables (remove in production)
-      console.log('Auth config check:', {
-        configUsername: authConfig.username,
-        configPassword: authConfig.password,
-        mode: import.meta.env.MODE,
-        envVarsAvailable: Object.keys(import.meta.env)
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // important for session cookies
+        body: JSON.stringify(credentials),
       });
-      
-      if (credentials.username === authConfig.username && credentials.password === authConfig.password) {
+      const result = await response.json();
+      if (response.ok && result.success) {
         const authData = {
           user: { username: credentials.username },
           expiry: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
         };
-        
         setIsAuthenticated(true);
         setUser({ username: credentials.username });
         localStorage.setItem('reddit-sentiment-auth', JSON.stringify(authData));

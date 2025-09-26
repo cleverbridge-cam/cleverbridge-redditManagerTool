@@ -194,15 +194,16 @@ def get_dashboard_data():
 @app.post("/api/login")
 async def login(request: Request):
     data = await request.json()
+    username = data.get("username")
     password = data.get("password")
-    # Get password from environment variable
+    expected_username = os.getenv("AUTH_USERNAME")
     expected_password = os.getenv("AUTH_PASSWORD")
-    if not expected_password:
-        return JSONResponse(status_code=500, content={"error": "Auth password not set on server."})
-    if password == expected_password:
+    if not expected_username or not expected_password:
+        return JSONResponse(status_code=500, content={"error": "Auth credentials not set on server."})
+    if username == expected_username and password == expected_password:
         # Set session cookie
         request.session["authenticated"] = True
         return {"success": True}
-    return JSONResponse(status_code=401, content={"success": False, "error": "Invalid password"})
+    return JSONResponse(status_code=401, content={"success": False, "error": "Invalid username or password"})
 
 app.include_router(reddit_oauth_router)
