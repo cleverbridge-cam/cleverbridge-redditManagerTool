@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import praw
 from textblob import TextBlob
 import time
+import datetime
 
 load_dotenv()
 
@@ -43,7 +44,7 @@ def get_recent_mentions(subreddits, keywords=["Cleverbridge", "Merchant of Recor
                         "score": round(sentiment_score, 2),
                         "upvotes": post.score,
                         "comments": post.num_comments,
-                        "timeAgo": "Just now",
+                        "createdAt": datetime.datetime.utcfromtimestamp(post.created_utc).strftime("%b %d, %Y, %H:%M UTC"),
                         "status": "neutral",
                         "keywords": [keyword.lower()],
                         "url": f"https://reddit.com{post.permalink}"
