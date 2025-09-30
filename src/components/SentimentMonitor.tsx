@@ -12,9 +12,25 @@ import {
   Clock, AlertTriangle, CheckCircle, Users, Flag, Target, Eye
 } from "lucide-react";
 
+// Type for Reddit post data
+interface RedditPost {
+  id: string;
+  title: string;
+  author: string;
+  subreddit: string;
+  sentiment: string;
+  score: number;
+  upvotes: number;
+  comments: number;
+  createdAt: string;
+  status: string;
+  keywords: string[];
+  url: string;
+}
+
 // Type for backend response
 interface RecentMentionsResponse {
-  posts: any[];
+  posts: RedditPost[];
   average_sentiment: number;
 }
 
@@ -22,7 +38,12 @@ const SentimentMonitor = () => {
   const [selectedSubreddit, setSelectedSubreddit] = useState("all");
   const [sentimentFilter, setSentimentFilter] = useState("all");
   const [flaggedIds, setFlaggedIds] = useState<string[]>([]);
-  const [showFlaggedOnly, setShowFlaggedOnly] = useState(false);
+  const [ignoredIds, setIgnoredIds] = useState<string[]>([]);
+  const [engagedIds, setEngagedIds] = useState<string[]>([]); // Add state for engaged posts
+  const [showUnprocessed, setShowUnprocessed] = useState(true);
+  const [showFlagged, setShowFlagged] = useState(false);
+  const [showIgnored, setShowIgnored] = useState(false);
+  const [showEngaged, setShowEngaged] = useState(false);
   const [opportunityFilter, setOpportunityFilter] = useState(false);
   const [subredditInput, setSubredditInput] = useState("");
   const [manualSubreddits, setManualSubreddits] = useState<string[]>([]);
@@ -55,6 +76,20 @@ const SentimentMonitor = () => {
     axios.get<string[]>(apiUrl("/flagged"))
       .then(res => setFlaggedIds(res.data))
       .catch(() => setFlaggedIds([]));
+  }, []);
+
+  // Fetch ignored IDs from backend
+  useEffect(() => {
+    axios.get<string[]>(apiUrl("/ignored"))
+      .then(res => setIgnoredIds(res.data))
+      .catch(() => setIgnoredIds([]));
+  }, []);
+
+  // Fetch engaged IDs from backend
+  useEffect(() => {
+    axios.get<string[]>(apiUrl("/engaged"))
+      .then(res => setEngagedIds(res.data))
+      .catch(() => setEngagedIds([]));
   }, []);
 
   // Compute monitored subreddits dynamically from recentMentions
@@ -98,14 +133,42 @@ const SentimentMonitor = () => {
     return subredditMatches && sentimentMatches;
   });
 
-  // Apply additional filtering (flagged/opportunities) and pagination
+  // Apply additional filtering (unprocessed/flagged/ignored/engaged/opportunities) and pagination
   const getDisplayedMentions = () => {
     let mentions = filteredMentions;
     
-    if (showFlaggedOnly) {
-      mentions = mentions.filter(m => flaggedIds.includes(m.id));
-    } else if (opportunityFilter) {
-      mentions = mentions.filter(m => m.status === "opportunity");
+    // If showing ignored posts, that takes precedence
+    if (showIgnored) {
+      mentions = mentions.filter(m => ignoredIds.includes(m.id));
+    } else if (showUnprocessed) {
+      // Show only posts that haven't been processed in any way
+      mentions = mentions.filter(m => 
+        !flaggedIds.includes(m.id) && 
+        !ignoredIds.includes(m.id) && 
+        !engagedIds.includes(m.id)
+      );
+    } else {
+      // Create a combined filtered array for all active filters
+      let filteredResults: RedditPost[] = [];
+      
+      if (showFlagged) {
+        filteredResults = [...filteredResults, ...mentions.filter(m => flaggedIds.includes(m.id))];
+      }
+      if (showEngaged) {
+        filteredResults = [...filteredResults, ...mentions.filter(m => engagedIds.includes(m.id))];
+      }
+      if (opportunityFilter) {
+        filteredResults = [...filteredResults, ...mentions.filter(m => m.status === "opportunity")];
+      }
+      
+      // If any filter is selected, use the filtered results
+      if (showFlagged || showEngaged || opportunityFilter) {
+        // Remove duplicates in case a post matches multiple filters
+        mentions = Array.from(new Set(filteredResults));
+      } else {
+        // If no filter is selected, show no posts
+        mentions = [];
+      }
     }
     
     return mentions.slice(0, displayCount);
@@ -117,10 +180,38 @@ const SentimentMonitor = () => {
   const getTotalFilteredMentions = () => {
     let mentions = filteredMentions;
     
-    if (showFlaggedOnly) {
-      mentions = mentions.filter(m => flaggedIds.includes(m.id));
-    } else if (opportunityFilter) {
-      mentions = mentions.filter(m => m.status === "opportunity");
+    // If showing ignored posts, that takes precedence
+    if (showIgnored) {
+      mentions = mentions.filter(m => ignoredIds.includes(m.id));
+    } else if (showUnprocessed) {
+      // Show only posts that haven't been processed in any way
+      mentions = mentions.filter(m => 
+        !flaggedIds.includes(m.id) && 
+        !ignoredIds.includes(m.id) && 
+        !engagedIds.includes(m.id)
+      );
+    } else {
+      // Create a combined filtered array for all active filters
+      let filteredResults: RedditPost[] = [];
+      
+      if (showFlagged) {
+        filteredResults = [...filteredResults, ...mentions.filter(m => flaggedIds.includes(m.id))];
+      }
+      if (showEngaged) {
+        filteredResults = [...filteredResults, ...mentions.filter(m => engagedIds.includes(m.id))];
+      }
+      if (opportunityFilter) {
+        filteredResults = [...filteredResults, ...mentions.filter(m => m.status === "opportunity")];
+      }
+      
+      // If any filter is selected, use the filtered results
+      if (showFlagged || showEngaged || opportunityFilter) {
+        // Remove duplicates in case a post matches multiple filters
+        mentions = Array.from(new Set(filteredResults));
+      } else {
+        // If no filter is selected, show no posts
+        mentions = [];
+      }
     }
     
     return mentions;
@@ -142,7 +233,7 @@ const SentimentMonitor = () => {
   // Reset display count when filters change
   useEffect(() => {
     setDisplayCount(25);
-  }, [selectedSubreddit, sentimentFilter, showFlaggedOnly, opportunityFilter]);
+  }, [selectedSubreddit, sentimentFilter, showUnprocessed, showFlagged, showIgnored, showEngaged, opportunityFilter]);
 
   // Reset selectedSubreddit to 'all' if it's not present in monitoredSubreddits
   if (
@@ -162,6 +253,30 @@ const SentimentMonitor = () => {
   const unflagPost = async (id: string) => {
     await axios.post(apiUrl("/unflag"), { id });
     setFlaggedIds(prev => prev.filter(flaggedId => flaggedId !== id));
+  };
+
+  // Function to ignore a post
+  const ignorePost = async (id: string) => {
+    await axios.post(apiUrl("/ignore"), { id });
+    setIgnoredIds(prev => [...prev, id]);
+  };
+
+  // Function to unignore a post
+  const unignorePost = async (id: string) => {
+    await axios.post(apiUrl("/unignore"), { id });
+    setIgnoredIds(prev => prev.filter(ignoredId => ignoredId !== id));
+  };
+
+  // Function to engage with a post
+  const engagePost = async (id: string) => {
+    await axios.post(apiUrl("/engage"), { id });
+    setEngagedIds(prev => [...prev, id]);
+  };
+
+  // Function to unengage from a post
+  const unengagePost = async (id: string) => {
+    await axios.post(apiUrl("/unengage"), { id });
+    setEngagedIds(prev => prev.filter(engagedId => engagedId !== id));
   };
 
   // Add subreddit to backend
@@ -308,7 +423,7 @@ const SentimentMonitor = () => {
   return (
     <div className="space-y-6">
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="bg-gradient-card border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -329,6 +444,18 @@ const SentimentMonitor = () => {
                 <p className="text-2xl font-bold text-destructive">{flaggedIds.length}</p>
               </div>
               <Flag className="h-8 w-8 text-destructive" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Engaged</p>
+                <p className="text-2xl font-bold text-blue-500">{engagedIds.length}</p>
+              </div>
+              <MessageCircle className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -468,20 +595,67 @@ const SentimentMonitor = () => {
                   <div className="flex items-center gap-1 px-2 py-1 border border-border rounded bg-card">
                     <input
                       type="checkbox"
-                      checked={showFlaggedOnly}
-                      onChange={e => setShowFlaggedOnly(e.target.checked)}
+                      checked={showUnprocessed}
+                      onChange={e => {
+                        setShowUnprocessed(e.target.checked);
+                        if (e.target.checked) {
+                          setShowFlagged(false);
+                          setShowIgnored(false);
+                          setShowEngaged(false);
+                          setOpportunityFilter(false);
+                        }
+                      }}
+                      className="checkbox-primary"
+                    />
+                    <span className="text-xs text-foreground">Unprocessed Only</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 border border-border rounded bg-card">
+                    <input
+                      type="checkbox"
+                      checked={showFlagged}
+                      onChange={e => {
+                        setShowFlagged(e.target.checked);
+                        if (e.target.checked) setShowUnprocessed(false);
+                      }}
                       className="checkbox-destructive"
                     />
-                    <span className="text-xs text-foreground">Show Flagged Only</span>
+                    <span className="text-xs text-foreground">Flagged</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 border border-border rounded bg-card">
+                    <input
+                      type="checkbox"
+                      checked={showIgnored}
+                      onChange={e => {
+                        setShowIgnored(e.target.checked);
+                        if (e.target.checked) setShowUnprocessed(false);
+                      }}
+                      className="checkbox-warning"
+                    />
+                    <span className="text-xs text-foreground">Ignored</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-1 border border-border rounded bg-card">
+                    <input
+                      type="checkbox"
+                      checked={showEngaged}
+                      onChange={e => {
+                        setShowEngaged(e.target.checked);
+                        if (e.target.checked) setShowUnprocessed(false);
+                      }}
+                      className="checkbox-blue"
+                    />
+                    <span className="text-xs text-foreground">Engaged</span>
                   </div>
                   <div className="flex items-center gap-1 px-2 py-1 border border-border rounded bg-card">
                     <input
                       type="checkbox"
                       checked={opportunityFilter}
-                      onChange={e => setOpportunityFilter(e.target.checked)}
+                      onChange={e => {
+                        setOpportunityFilter(e.target.checked);
+                        if (e.target.checked) setShowUnprocessed(false);
+                      }}
                       className="checkbox-success"
                     />
-                    <span className="text-xs text-foreground">Show Opportunities Only</span>
+                    <span className="text-xs text-foreground">Opportunities</span>
                   </div>
                 </div>
               </div>
@@ -501,14 +675,15 @@ const SentimentMonitor = () => {
                             {getStatusIcon(mention.status ?? "neutral")}
                             <Badge variant="outline" className="text-xs">{mention.subreddit}</Badge>
                             {getSentimentBadge(mention.sentiment, mention.status ?? "")}
-                            <span className="text-xs text-muted-foreground">u/{mention.author ?? "anonymous"}</span>
-                            <span className="text-xs text-[#00ADEF]">{mention.sentiment} ({mention.score})</span>
+                            <span className="text-xs text-muted-foreground">
+                              u/{mention.author} • {mention.createdAt}
+                            </span>
+                            <span className="text-xs text-[#00ADEF]">{mention.sentiment} ({mention.score.toFixed(2)})</span>
                           </div>
                           <div className="text-sm font-medium mb-1">{mention.title}</div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1">
                             <span>{mention.upvotes} upvotes</span>
                             <span>{mention.comments} comments</span>
-                            <span>{mention.timeAgo}</span>
                           </div>
                           {mention.keywords && (
                             <div className="flex flex-wrap gap-1">
@@ -533,8 +708,19 @@ const SentimentMonitor = () => {
                           >
                             {flaggedIds.includes(mention.id) ? "Unflag" : "Flag"}
                           </Button>
-                          <Button variant={mention.status === "opportunity" ? "default" : "outline"} size="sm">
-                            Engage
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => ignoredIds.includes(mention.id) ? unignorePost(mention.id) : ignorePost(mention.id)}
+                          >
+                            {ignoredIds.includes(mention.id) ? "Unignore" : "Ignore"}
+                          </Button>
+                          <Button
+                            variant={engagedIds.includes(mention.id) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => engagedIds.includes(mention.id) ? unengagePost(mention.id) : engagePost(mention.id)}
+                          >
+                            {engagedIds.includes(mention.id) ? "Engaged" : "Engage"}
                           </Button>
                         </div>
                       </div>

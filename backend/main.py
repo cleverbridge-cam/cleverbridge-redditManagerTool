@@ -28,7 +28,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Local development (Vite default)
-        "http://localhost:8081",  # Local development (current frontend port)
+        "http://localhost:8000",  # Local development (current frontend port)
         "http://localhost:8080",
         "https://reddit-sentiment-managerfrontend-production.up.railway.app",
         "https://cleverbridge-redditmanagertool-production.up.railway.app",  # Railway deployment
@@ -72,8 +72,45 @@ def recent_mentions():
     subreddits = get_cached_subreddits()
     keywords = get_cached_keywords()
     
+    # Get engaged posts
+    engaged_result = supabase.table("engaged_posts").select("post_id").execute()
+    engaged_ids = set(row["post_id"] for row in engaged_result.data) if engaged_result.data else set()
+    
     results = get_recent_mentions(subreddits, keywords=keywords, limit=25)
+    # Mark engaged posts and identify opportunities
+    opportunity_keywords = ["help", "looking for", "alternative", "recommend", "suggestion", "vs", "compare", 
+                          "switch", "moving from", "pricing", "cost", "expensive", "cheaper"]
+    
+    for post in results:
+        post["engaged"] = post["id"] in engaged_ids
+        
     results = analyze_sentiment(results)  # Add sentiment and score to each post
+    
+    # Identify opportunities based on multiple factors
+    for post in results:
+        # Initialize score for opportunity factors
+        opportunity_score = 0
+        
+        # Factor 1: Strong sentiment (either positive or negative)
+        if abs(post["score"]) > 0.5:
+            opportunity_score += 1
+        
+        # Factor 2: High engagement
+        if post["upvotes"] > 5 or post["comments"] > 3:
+            opportunity_score += 1
+            
+        # Factor 3: Keyword matching in title or content
+        post_text = post["title"].lower()
+        if any(keyword in post_text for keyword in opportunity_keywords):
+            opportunity_score += 1
+            
+        # Factor 4: Negative sentiment about competitors
+        competitor_keywords = ["stripe", "fastspring", "paddle", "gumroad"]
+        if post["score"] < -0.2 and any(comp in post_text for comp in competitor_keywords):
+            opportunity_score += 2
+            
+        # Mark as opportunity if meets threshold
+        post["status"] = "opportunity" if opportunity_score >= 2 else post.get("status", "neutral")
     # Calculate average sentiment score
     avg_score = round(sum(post["score"] for post in results) / len(results), 2) if results else 0.0
     return {"posts": results, "average_sentiment": avg_score}
@@ -93,11 +130,44 @@ def get_flagged():
     ids = [row["post_id"] for row in result.data]
     return ids
 
-@app.post("/unflag")
-async def unflag_post(request: Request):
+@app.post("/engage")
+async def engage_post(request: Request):
     data = await request.json()
     post_id = data.get("id")
-    supabase.table("flagged_posts").delete().eq("post_id", post_id).execute()
+    supabase.table("engaged_posts").insert({"post_id": post_id}).execute()
+    return {"success": True}
+
+@app.get("/engaged")
+def get_engaged():
+    result = supabase.table("engaged_posts").select("post_id").execute()
+    ids = [row["post_id"] for row in result.data]
+    return ids
+
+@app.post("/unengage")
+async def unengage_post(request: Request):
+    data = await request.json()
+    post_id = data.get("id")
+    supabase.table("engaged_posts").delete().eq("post_id", post_id).execute()
+    return {"success": True}
+
+@app.post("/ignore")
+async def ignore_post(request: Request):
+    data = await request.json()
+    post_id = data.get("id")
+    supabase.table("ignored_posts").insert({"post_id": post_id}).execute()
+    return {"success": True}
+
+@app.get("/ignored")
+def get_ignored():
+    result = supabase.table("ignored_posts").select("post_id").execute()
+    ids = [row["post_id"] for row in result.data]
+    return ids
+
+@app.post("/unignore")
+async def unignore_post(request: Request):
+    data = await request.json()
+    post_id = data.get("id")
+    supabase.table("ignored_posts").delete().eq("post_id", post_id).execute()
     return {"success": True}
 
 @app.post("/monitored-subreddits")
@@ -167,6 +237,10 @@ def get_dashboard_data():
         flagged_result = supabase.table("flagged_posts").select("post_id").execute()
         flagged_ids = [row["post_id"] for row in flagged_result.data] if flagged_result.data else []
         
+        # Get ignored posts
+        ignored_result = supabase.table("ignored_posts").select("post_id").execute()
+        ignored_ids = [row["post_id"] for row in ignored_result.data] if ignored_result.data else []
+        
         # Get recent mentions
         mentions = get_recent_mentions(subreddits, keywords=keywords, limit=25)
         mentions = analyze_sentiment(mentions)
@@ -179,11 +253,13 @@ def get_dashboard_data():
             "posts": mentions,
             "average_sentiment": avg_score,
             "flagged_ids": flagged_ids,
+            "ignored_ids": ignored_ids,
             "monitored_subreddits": subreddits,
             "keywords": keywords,
             "stats": {
                 "total_mentions": len(mentions),
                 "flagged_count": len(flagged_ids),
+                "ignored_count": len(ignored_ids),
                 "opportunities": opportunities,
                 "average_sentiment": avg_score
             }

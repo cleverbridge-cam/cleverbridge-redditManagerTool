@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import { apiUrl } from "@/config/api";
+import { formatDistance } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,23 @@ interface RecentMentionsResponse {
   posts: any[];
   average_sentiment: number;
 }
+
+// Helper function to format date
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const relativeTime = formatDistance(date, new Date(), { addSuffix: true });
+
+  return {
+    relative: relativeTime,
+    full: date.toLocaleDateString("en-US", { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  };
+};
 
 const SentimentMonitor = () => {
   const [selectedSubreddit, setSelectedSubreddit] = useState("all");
@@ -484,15 +502,17 @@ const SentimentMonitor = () => {
                             <span className="text-xs text-muted-foreground">u/{mention.author ?? "anonymous"}</span>
                             <span className="text-xs text-[#00ADEF]">{mention.sentiment} ({mention.score})</span>
                           </div>
-                          <div className="text-sm font-medium mb-1">{mention.title}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium">{mention.title}</div>
+                            <span className="text-xs text-muted-foreground" title={formatDate(mention.createdAt).full}>{formatDate(mention.createdAt).relative}</span>
+                          </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1">
                             <span>{mention.upvotes} upvotes</span>
                             <span>{mention.comments} comments</span>
-                            <span>{mention.timeAgo}</span>
                           </div>
                           {mention.keywords && (
                             <div className="flex flex-wrap gap-1">
-                              {mention.keywords.map((keyword: string, i: number) => (
+                              {mention.keywords.map((keyword, i) => (
                                 <Badge key={i} variant="secondary" className="text-xs">{keyword}</Badge>
                               ))}
                             </div>
@@ -518,6 +538,11 @@ const SentimentMonitor = () => {
                             Engage
                           </Button>
                         </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <span>Posted </span>
+                        <span className="font-medium">{formatDate(mention.createdAt).relative}</span>
+                        <span> | {formatDate(mention.createdAt).full}</span>
                       </div>
                     </div>
                   ))}

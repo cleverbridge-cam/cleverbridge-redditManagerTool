@@ -9,7 +9,7 @@ const getApiBaseUrl = (): string => {
   
   // In development, use localhost
   if (import.meta.env.DEV) {
-    return "http://localhost:8000";
+    return "http://localhost:8080";
   }
 
   // Fallback for production if env var not set
