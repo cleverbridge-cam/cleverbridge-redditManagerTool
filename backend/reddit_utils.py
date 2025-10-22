@@ -13,6 +13,49 @@ reddit = praw.Reddit(
     user_agent=os.getenv("REDDIT_USER_AGENT")
 )
 
+def get_post_by_id(post_id):
+    """Fetch a specific Reddit post by its ID"""
+    try:
+        post = reddit.submission(id=post_id)
+        
+        # Calculate sentiment
+        sentiment_score = TextBlob(post.title + " " + (post.selftext or "")).sentiment.polarity
+        sentiment = (
+            "positive" if sentiment_score > 0.2 else
+            "negative" if sentiment_score < -0.2 else
+            "neutral"
+        )
+
+        mention = {
+            "id": post.id,
+            "subreddit": f"r/{post.subreddit.display_name}",
+            "title": post.title,
+            "author": post.author.name if post.author else "anonymous",
+            "sentiment": sentiment,
+            "score": round(sentiment_score, 2),
+            "upvotes": post.score,
+            "comments": post.num_comments,
+            "createdAt": datetime.datetime.utcfromtimestamp(post.created_utc).strftime("%b %d, %Y, %I:%M %p UTC"),
+            "status": "neutral",
+            "keywords": [],  # We'll need to determine which keywords matched
+            "url": f"https://reddit.com{post.permalink}"
+        }
+        
+        return mention
+    except Exception as e:
+        print(f"Error fetching post {post_id}: {e}")
+        return None
+
+def get_posts_by_ids(post_ids):
+    """Fetch multiple Reddit posts by their IDs"""
+    posts = []
+    for post_id in post_ids:
+        post = get_post_by_id(post_id)
+        if post:
+            posts.append(post)
+        time.sleep(0.1)  # Small delay to avoid rate limits
+    return posts
+
 def get_recent_mentions(subreddits, keywords=["Cleverbridge", "Merchant of Record", "FastSpring","payment methods", "scaling", "payment services","scaling payments"], limit=10):
     mentions = []
     seen_ids = set()

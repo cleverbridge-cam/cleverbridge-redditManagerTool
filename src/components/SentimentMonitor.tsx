@@ -32,6 +32,19 @@ interface RedditPost {
 interface RecentMentionsResponse {
   posts: RedditPost[];
   average_sentiment: number;
+  flagged_ids?: string[];
+  ignored_ids?: string[];
+  engaged_ids?: string[];
+  monitored_subreddits?: string[];
+  keywords?: string[];
+  stats?: {
+    total_mentions: number;
+    flagged_count: number;
+    ignored_count: number;
+    engaged_count: number;
+    opportunities: number;
+    average_sentiment: number;
+  };
 }
 
 const SentimentMonitor = () => {
@@ -58,38 +71,34 @@ const SentimentMonitor = () => {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [keywordInput, setKeywordInput] = useState("");
 
-  const recentMentionsQuery = useQuery<RecentMentionsResponse>({
-    queryKey: ["recentMentions"],
+  const dashboardQuery = useQuery<RecentMentionsResponse>({
+    queryKey: ["dashboardData"],
     queryFn: async () => {
-      const res = await axios.get(apiUrl("/recent-mentions"));
+      const res = await axios.get(apiUrl("/dashboard-data"));
       return res.data as RecentMentionsResponse;
     },
     staleTime: 1000 * 60 * 5,
   });
-  const recentMentions = recentMentionsQuery.data?.posts ?? [];
-  const average_sentiment = recentMentionsQuery.data?.average_sentiment ?? 0;
-  const isLoading = recentMentionsQuery.isLoading;
-  const error = recentMentionsQuery.error;
+  const recentMentions = dashboardQuery.data?.posts ?? [];
+  const average_sentiment = dashboardQuery.data?.average_sentiment ?? 0;
+  const isLoading = dashboardQuery.isLoading;
+  const error = dashboardQuery.error;
 
-  // Fetch flagged IDs from backend
+  // Get flagged and engaged IDs from dashboard data instead of separate API calls
   useEffect(() => {
-    axios.get<string[]>(apiUrl("/flagged"))
-      .then(res => setFlaggedIds(res.data))
-      .catch(() => setFlaggedIds([]));
-  }, []);
+    if (dashboardQuery.data?.flagged_ids) {
+      setFlaggedIds(dashboardQuery.data.flagged_ids);
+    }
+    if (dashboardQuery.data?.engaged_ids) {
+      setEngagedIds(dashboardQuery.data.engaged_ids);
+    }
+  }, [dashboardQuery.data]);
 
   // Fetch ignored IDs from backend
   useEffect(() => {
     axios.get<string[]>(apiUrl("/ignored"))
       .then(res => setIgnoredIds(res.data))
       .catch(() => setIgnoredIds([]));
-  }, []);
-
-  // Fetch engaged IDs from backend
-  useEffect(() => {
-    axios.get<string[]>(apiUrl("/engaged"))
-      .then(res => setEngagedIds(res.data))
-      .catch(() => setEngagedIds([]));
   }, []);
 
   // Compute monitored subreddits dynamically from recentMentions
@@ -367,7 +376,7 @@ const SentimentMonitor = () => {
       const result = await addSubredditToBackend(sub);
       if (result.success) {
         setSubredditInput("");
-        recentMentionsQuery.refetch(); // Refetch mentions after adding
+        dashboardQuery.refetch(); // Refetch mentions after adding
         fetchMonitoredSubreddits(); // Refetch backend subreddits
       } else {
         alert(result.error || 'Failed to add subreddit');
@@ -378,7 +387,7 @@ const SentimentMonitor = () => {
   const handleRemoveSubreddit = async (subreddit: string) => {
     const result = await removeSubredditFromBackend(subreddit);
     if (result.success) {
-      recentMentionsQuery.refetch(); // Refetch mentions after removing
+      dashboardQuery.refetch(); // Refetch mentions after removing
       fetchMonitoredSubreddits(); // Refetch backend subreddits
     } else {
       alert(result.error || 'Failed to remove subreddit');
@@ -394,7 +403,7 @@ const SentimentMonitor = () => {
         // Update local state immediately to prevent flicker
         setKeywords(prev => [...prev, keyword]);
         // Refetch mentions after adding keyword
-        recentMentionsQuery.refetch();
+        dashboardQuery.refetch();
       } else {
         alert(result.error || 'Failed to add keyword');
       }
@@ -407,7 +416,7 @@ const SentimentMonitor = () => {
       // Update local state immediately to prevent flicker
       setKeywords(prev => prev.filter(k => k !== keyword));
       // Refetch mentions after removing keyword
-      recentMentionsQuery.refetch();
+      dashboardQuery.refetch();
     } else {
       alert(result.error || 'Failed to remove keyword');
     }

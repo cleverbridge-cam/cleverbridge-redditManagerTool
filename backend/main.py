@@ -13,11 +13,11 @@ from fastapi.responses import JSONResponse
 load_dotenv()
 # Try relative imports first (for local development), fall back to absolute (for Railway)
 try:
-    from .reddit_utils import get_recent_mentions
+    from .reddit_utils import get_recent_mentions, get_posts_by_ids
     from .sentiment_analysis import analyze_sentiment
     from .reddit_oauth import router as reddit_oauth_router
 except ImportError:
-    from reddit_utils import get_recent_mentions
+    from reddit_utils import get_recent_mentions, get_posts_by_ids
     from sentiment_analysis import analyze_sentiment
     from reddit_oauth import router as reddit_oauth_router
 
@@ -241,25 +241,95 @@ def get_dashboard_data():
         ignored_result = supabase.table("ignored_posts").select("post_id").execute()
         ignored_ids = [row["post_id"] for row in ignored_result.data] if ignored_result.data else []
         
+        # Get engaged posts
+        engaged_result = supabase.table("engaged_posts").select("post_id").execute()
+        engaged_ids = [row["post_id"] for row in engaged_result.data] if engaged_result.data else []
+        
         # Get recent mentions
         mentions = get_recent_mentions(subreddits, keywords=keywords, limit=25)
         mentions = analyze_sentiment(mentions)
         
+        # Mark engaged posts in recent mentions
+        for post in mentions:
+            post["engaged"] = post["id"] in engaged_ids
+        
+        # Get flagged posts that might not be in recent mentions
+        flagged_posts = []
+        if flagged_ids:
+            # Filter out flagged posts that are already in recent mentions
+            recent_post_ids = {post["id"] for post in mentions}
+            missing_flagged_ids = [fid for fid in flagged_ids if fid not in recent_post_ids]
+            
+            if missing_flagged_ids:
+                flagged_posts = get_posts_by_ids(missing_flagged_ids)
+                flagged_posts = analyze_sentiment(flagged_posts)
+                # Mark engaged status for flagged posts
+                for post in flagged_posts:
+                    post["engaged"] = post["id"] in engaged_ids
+        
+        # Get engaged posts that might not be in recent mentions or flagged posts
+        engaged_posts = []
+        if engaged_ids:
+            # Filter out engaged posts that are already in recent mentions or flagged posts
+            existing_post_ids = {post["id"] for post in mentions + flagged_posts}
+            missing_engaged_ids = [eid for eid in engaged_ids if eid not in existing_post_ids]
+            
+            if missing_engaged_ids:
+                engaged_posts = get_posts_by_ids(missing_engaged_ids)
+                engaged_posts = analyze_sentiment(engaged_posts)
+                # Mark engaged status for engaged posts
+                for post in engaged_posts:
+                    post["engaged"] = True
+        
+        # Combine recent mentions with missing flagged and engaged posts
+        all_posts = mentions + flagged_posts + engaged_posts
+        
+        # Apply opportunity detection logic to all posts
+        opportunity_keywords = ["help", "looking for", "alternative", "recommend", "suggestion", "vs", "compare", 
+                              "switch", "moving from", "pricing", "cost", "expensive", "cheaper"]
+        competitor_keywords = ["stripe", "fastspring", "paddle", "gumroad"]
+        
+        for post in all_posts:
+            # Initialize score for opportunity factors
+            opportunity_score = 0
+            
+            # Factor 1: Strong sentiment (either positive or negative)
+            if abs(post["score"]) > 0.5:
+                opportunity_score += 1
+            
+            # Factor 2: High engagement
+            if post["upvotes"] > 5 or post["comments"] > 3:
+                opportunity_score += 1
+                
+            # Factor 3: Keyword matching in title or content
+            post_text = post["title"].lower()
+            if any(keyword in post_text for keyword in opportunity_keywords):
+                opportunity_score += 1
+                
+            # Factor 4: Negative sentiment about competitors
+            if post["score"] < -0.2 and any(comp in post_text for comp in competitor_keywords):
+                opportunity_score += 2
+                
+            # Mark as opportunity if meets threshold
+            post["status"] = "opportunity" if opportunity_score >= 2 else post.get("status", "neutral")
+        
         # Calculate stats
-        avg_score = round(sum(post["score"] for post in mentions) / len(mentions), 2) if mentions else 0.0
-        opportunities = len([m for m in mentions if m.get("status") == "opportunity"])
+        avg_score = round(sum(post["score"] for post in all_posts) / len(all_posts), 2) if all_posts else 0.0
+        opportunities = len([m for m in all_posts if m.get("status") == "opportunity"])
         
         return {
-            "posts": mentions,
+            "posts": all_posts,
             "average_sentiment": avg_score,
             "flagged_ids": flagged_ids,
             "ignored_ids": ignored_ids,
+            "engaged_ids": engaged_ids,
             "monitored_subreddits": subreddits,
             "keywords": keywords,
             "stats": {
-                "total_mentions": len(mentions),
+                "total_mentions": len(all_posts),
                 "flagged_count": len(flagged_ids),
                 "ignored_count": len(ignored_ids),
+                "engaged_count": len(engaged_ids),
                 "opportunities": opportunities,
                 "average_sentiment": avg_score
             }
