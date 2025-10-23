@@ -79,7 +79,7 @@ def recent_mentions():
     results = get_recent_mentions(subreddits, keywords=keywords, limit=25)
     # Mark engaged posts and identify opportunities
     opportunity_keywords = ["help", "looking for", "alternative", "recommend", "suggestion", "vs", "compare", 
-                          "switch", "moving from", "pricing", "cost", "expensive", "cheaper"]
+                          "switch", "moving from", "pricing", "cost", "expensive", "cheaper","Cleverbridge","Merchant of Record","FastSpring"]
     
     for post in results:
         post["engaged"] = post["id"] in engaged_ids
@@ -281,8 +281,22 @@ def get_dashboard_data():
                 for post in engaged_posts:
                     post["engaged"] = True
         
-        # Combine recent mentions with missing flagged and engaged posts
-        all_posts = mentions + flagged_posts + engaged_posts
+        # Get ignored posts that might not be in recent mentions, flagged posts, or engaged posts
+        ignored_posts = []
+        if ignored_ids:
+            # Filter out ignored posts that are already in recent mentions, flagged posts, or engaged posts
+            existing_post_ids = {post["id"] for post in mentions + flagged_posts + engaged_posts}
+            missing_ignored_ids = [iid for iid in ignored_ids if iid not in existing_post_ids]
+            
+            if missing_ignored_ids:
+                ignored_posts = get_posts_by_ids(missing_ignored_ids)
+                ignored_posts = analyze_sentiment(ignored_posts)
+                # Mark engaged status for ignored posts
+                for post in ignored_posts:
+                    post["engaged"] = post["id"] in engaged_ids
+        
+        # Combine recent mentions with missing flagged, engaged, and ignored posts
+        all_posts = mentions + flagged_posts + engaged_posts + ignored_posts
         
         # Apply opportunity detection logic to all posts
         opportunity_keywords = ["help", "looking for", "alternative", "recommend", "suggestion", "vs", "compare", 

@@ -84,7 +84,7 @@ const SentimentMonitor = () => {
   const isLoading = dashboardQuery.isLoading;
   const error = dashboardQuery.error;
 
-  // Get flagged and engaged IDs from dashboard data instead of separate API calls
+  // Get flagged, engaged, and ignored IDs from dashboard data instead of separate API calls
   useEffect(() => {
     if (dashboardQuery.data?.flagged_ids) {
       setFlaggedIds(dashboardQuery.data.flagged_ids);
@@ -92,14 +92,10 @@ const SentimentMonitor = () => {
     if (dashboardQuery.data?.engaged_ids) {
       setEngagedIds(dashboardQuery.data.engaged_ids);
     }
+    if (dashboardQuery.data?.ignored_ids) {
+      setIgnoredIds(dashboardQuery.data.ignored_ids);
+    }
   }, [dashboardQuery.data]);
-
-  // Fetch ignored IDs from backend
-  useEffect(() => {
-    axios.get<string[]>(apiUrl("/ignored"))
-      .then(res => setIgnoredIds(res.data))
-      .catch(() => setIgnoredIds([]));
-  }, []);
 
   // Compute monitored subreddits dynamically from recentMentions
   const computedMonitoredSubreddits = Object.values(
@@ -473,10 +469,10 @@ const SentimentMonitor = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Opportunities</p>
-                <p className="text-2xl font-bold text-success">{recentMentions.filter(m => m.status === "opportunity").length}</p>
+                <p className="text-sm text-muted-foreground">Ignored</p>
+                <p className="text-2xl font-bold text-muted-foreground">{ignoredIds.length}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-success" />
+              <Eye className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -485,10 +481,8 @@ const SentimentMonitor = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Avg Sentiment</p>
-                <p className={`text-2xl font-bold ${average_sentiment > 0 ? 'text-success' : average_sentiment < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                  {average_sentiment > 0 ? '+' : average_sentiment < 0 ? '-' : ''}{Math.abs(average_sentiment)}
-                </p>
+                <p className="text-sm text-muted-foreground">Opportunities</p>
+                <p className="text-2xl font-bold text-success">{recentMentions.filter(m => m.status === "opportunity").length}</p>
               </div>
               <Target className="h-8 w-8 text-success" />
             </div>
